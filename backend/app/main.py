@@ -4,7 +4,7 @@ import json as _json
 import logging
 import mimetypes
 import os
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
 import bcrypt
@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__, auth, config, db, lidarr, notify, slskd, soularr_cfg, soularr_ctl
+from . import __version__, auth, config, db, lidarr, notify, slskd, soularr_cfg, soularr_ctl, youtube
 from .ratelimit import SlidingWindowLimiter, client_ip, login_limiter
 from .schemas import (
     ActionResult, DiscoverCategories, LoginIn, Me, PasswordChange, RequestIn, RequestOut,
@@ -49,6 +49,8 @@ def _broadcast(event_type: str, data: dict) -> None:
 async def lifespan(_app: FastAPI):
     # Startup
     db.init()
+    youtube.init()
+    youtube_task = asyncio.create_task(youtube.worker()) if youtube.configured() else None
     db.baseline_notifications()   # don't notify for already-available requests
     _requeue_stranded_requests()  # recover any add that a restart interrupted
     # Always run: besides ntfy pushes it also tracks the give-up counter and
@@ -59,10 +61,15 @@ async def lifespan(_app: FastAPI):
         yield
     finally:
         # Shutdown
+        if youtube_task:
+            youtube_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await youtube_task
         await lidarr.aclose()   # close the shared HTTP client
 
 
 app = FastAPI(title="lidseeker", version=__version__, lifespan=lifespan)
+app.include_router(youtube.router)
 
 
 @app.exception_handler(httpx.HTTPError)

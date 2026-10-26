@@ -1,0 +1,13 @@
+# Optional image extending a locally built Lidseeker image with audio download tools.
+# docker build -t lidseeker-local -f Dockerfile .
+# docker build -t lidseeker-youtube --build-arg BASE_IMAGE=lidseeker-local -f Dockerfile.youtube .
+ARG BASE_IMAGE=lidseeker-local
+FROM node:24-bookworm-slim AS javascript
+FROM ${BASE_IMAGE}
+USER root
+COPY --from=javascript /usr/local/bin/node /usr/local/bin/node
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir 'yt-dlp[default]'
+ENV YOUTUBE_JS_RUNTIME=node
+USER app

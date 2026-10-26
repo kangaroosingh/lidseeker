@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { api, getToken } from "../api";
 import type { MusicRequest, ServiceLink, StatsOut } from "../types";
+import { YouTubeRequests } from "../components/YouTubeRequests";
 import { MediaRow } from "../components/MediaRow";
 import { StatusChip } from "../components/StatusChip";
 import { Pipeline } from "../components/Pipeline";
@@ -118,15 +119,16 @@ export function Requests() {
   if (error && items.length === 0) return <EmptyState icon="☁️" title="Couldn't load requests" message={error} />;
   if (items.length === 0)
     return (
-      <EmptyState
+      <><YouTubeRequests historyOnly /><EmptyState
         icon="📥"
         title="No requests yet"
         message="Albums and artists you request will appear here, with live download status."
-      />
+      /></>
     );
 
   return (
     <>
+      <YouTubeRequests historyOnly />
       {actionMessage && <div className="toast" style={{ marginBottom: 10 }}>{actionMessage}</div>}
 
       {stats && (

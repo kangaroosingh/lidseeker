@@ -89,6 +89,15 @@ export const api = {
     mode?: "album" | "track";
   }) => req<MusicRequest>("/request", { method: "POST", body: JSON.stringify(body) }),
 
+  youtube: () => req<{ enabled: boolean; requests: YouTubeRequest[] }>("/youtube"),
+  searchYouTube: (term: string) => req<YouTubeVideo[]>(`/youtube/search${qs({ term })}`),
+  previewYouTubePlaylist: (url: string, limit: number) =>
+    req<YouTubePlaylist>("/youtube/playlist/preview", { method: "POST", body: JSON.stringify({ url, limit }) }),
+  requestYouTubePlaylist: (video_ids: string[]) =>
+    req<{ queued: number; skipped: number }>("/youtube/playlist", { method: "POST", body: JSON.stringify({ video_ids }) }),
+  requestYouTube: (url: string, title: string, artist: string) =>
+    req<YouTubeRequest>("/youtube", { method: "POST", body: JSON.stringify({ url, title, artist }) }),
+
   requests: () => req<MusicRequest[]>("/requests"),
 
   deleteRequest: (id: number) =>
@@ -140,3 +149,11 @@ export const api = {
   searchRequestNow: (id: number) =>
     req<ActionResult>(`/requests/${id}/search-now`, { method: "POST" }),
 };
+
+export interface YouTubeRequest {
+  id: number; video_id: string; title: string; artist: string;
+  status: "queued" | "downloading" | "downloaded" | "failed"; error: string | null;
+}
+
+export interface YouTubeVideo { video_id: string; title: string; channel: string; artist: string; duration?: number }
+export interface YouTubePlaylist { title: string; songs: { video_id: string; title: string }[]; truncated: boolean; limit: number }
