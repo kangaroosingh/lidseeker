@@ -178,3 +178,9 @@ DB_PATH = os.environ.get("DB_PATH", "/data/lidseeker.db")
 
 # --- Server ---
 PORT = int(os.environ.get("PORT", "5056"))
+
+# Optional single-video YouTube requests. Empty directory disables the feature.
+YOUTUBE_DOWNLOAD_DIR = os.environ.get("YOUTUBE_DOWNLOAD_DIR", "").strip()
+YOUTUBE_YTDLP = os.environ.get("YOUTUBE_YTDLP", "yt-dlp")
+YOUTUBE_FFMPEG = os.environ.get("YOUTUBE_FFMPEG", "ffmpeg")
+YOUTUBE_JS_RUNTIME = os.environ.get("YOUTUBE_JS_RUNTIME", "")
