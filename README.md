@@ -316,3 +316,7 @@ Full history and downloads on the [releases page](https://github.com/IvoryCobra-
 [MIT](LICENSE). Lidseeker is an independent project. It integrates with Lidarr, and optionally with
 Soularr and slskd, **only over their HTTP APIs** (and, for the optional Soularr adapter, by reading/writing
 Soularr's own config files) — it contains no code from those projects, which are separately licensed.
+
+### Optional YouTube requests
+
+The web Search page can search YouTube or preview a pasted video/playlist link when enabled by the administrator. Imports use a separate durable queue and write tagged MP3 files into a scanned music folder. See [setup, limits and API](backend/YOUTUBE.md).
