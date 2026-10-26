@@ -2,16 +2,17 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { SearchResult } from "../types";
+import { YouTubeRequests } from "../components/YouTubeRequests";
 import { MediaRow } from "../components/MediaRow";
 import { RequestButton, type ReqState } from "../components/RequestButton";
 import { EmptyState, Spinner } from "../components/States";
 
-type Tab = "album" | "artist" | "track";
-const TAB_LABEL: Record<Tab, string> = { album: "Albums", artist: "Artists", track: "Songs" };
+type Tab = "album" | "artist" | "track" | "youtube";
+const TAB_LABEL: Record<Tab, string> = { album: "Albums", artist: "Artists", track: "Songs", youtube: "YouTube" };
 
 export function Search() {
   const nav = useNavigate();
-  const [tab, setTab] = useState<Tab>("album");
+  const [tab, setTab] = useState<Tab>("track");
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,6 +23,7 @@ export function Search() {
   const [confirmTrack, setConfirmTrack] = useState<SearchResult | null>(null);
 
   const run = async (t: Tab = tab) => {
+    if (t === "youtube") return;
     if (!term.trim()) return;
     setLoading(true);
     setError(null);
@@ -69,6 +71,14 @@ export function Search() {
 
   return (
     <>
+      <div className="tabs" style={{ marginBottom: 14 }}>
+        {(["album", "artist", "track", "youtube"] as Tab[]).map((t) => (
+          <button key={t} className={tab === t ? "on" : ""} onClick={() => switchTab(t)}>
+            {TAB_LABEL[t]}
+          </button>
+        ))}
+      </div>
+      {tab === "youtube" ? <YouTubeRequests /> : <>
       <div className="searchbar">
         <input
           placeholder={`Search ${TAB_LABEL[tab].toLowerCase()}…`}
@@ -81,13 +91,7 @@ export function Search() {
         </button>
       </div>
 
-      <div className="tabs" style={{ marginBottom: 14 }}>
-        {(["album", "artist", "track"] as Tab[]).map((t) => (
-          <button key={t} className={tab === t ? "on" : ""} onClick={() => switchTab(t)}>
-            {TAB_LABEL[t]}
-          </button>
-        ))}
-      </div>
+
 
       {loading ? (
         <Spinner />
@@ -138,6 +142,7 @@ export function Search() {
         </div>
       )}
 
+      </>}
       {/* Track → album confirmation dialog */}
       {confirmTrack && (
         <div className="backdrop" onClick={() => setConfirmTrack(null)}>
