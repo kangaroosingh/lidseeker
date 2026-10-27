@@ -53,6 +53,12 @@ class Repository(private val settings: Settings) {
         settings.clearToken()
     }
 
+    suspend fun youtube() = api.youtube()
+    suspend fun youtubeSearch(term: String) = api.youtubeSearch(term)
+    suspend fun youtubeRequest(body: YouTubeLink) = api.youtubeRequest(body)
+    suspend fun youtubePreview(url: String, limit: Int) = api.youtubePreview(YouTubePreviewBody(url, limit))
+    suspend fun youtubePlaylist(ids: List<String>) = api.youtubePlaylist(YouTubePlaylistBody(ids))
+
     suspend fun search(term: String, type: String): List<SearchResult> =
         api.search(term, type)
 

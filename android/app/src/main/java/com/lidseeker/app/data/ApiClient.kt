@@ -24,7 +24,7 @@ object ApiClient {
             .addInterceptor(DynamicHostInterceptor(configProvider))
             .addInterceptor(UnauthorizedInterceptor(onUnauthorized))
             .connectTimeout(15.seconds)
-            .readTimeout(40.seconds)
+            .readTimeout(75.seconds)
             .build()
 
         return Retrofit.Builder()

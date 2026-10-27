@@ -9,6 +9,12 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ApiService {
+    @GET("api/youtube") suspend fun youtube(): YouTubeHistory
+    @GET("api/youtube/search") suspend fun youtubeSearch(@Query("term") term: String): List<YouTubeVideo>
+    @POST("api/youtube") suspend fun youtubeRequest(@Body body: YouTubeLink): YouTubeJob
+    @POST("api/youtube/playlist/preview") suspend fun youtubePreview(@Body body: YouTubePreviewBody): YouTubePlaylist
+    @POST("api/youtube/playlist") suspend fun youtubePlaylist(@Body body: YouTubePlaylistBody): YouTubeQueued
+
     @POST("api/auth/login")
     suspend fun login(@Body body: LoginRequest): TokenResponse
 

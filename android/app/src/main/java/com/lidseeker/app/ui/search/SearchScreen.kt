@@ -62,7 +62,7 @@ class SearchViewModel(private val repo: Repository) : ViewModel() {
     fun selectType(t: String) {
         if (t == type) return
         type = t
-        if (query.isNotBlank()) search()
+        if (t != "youtube" && query.isNotBlank()) search()
     }
 
     fun search() {
@@ -115,7 +115,7 @@ fun SearchScreen(
     val vm: SearchViewModel = viewModel(factory = repoFactory { SearchViewModel(it) })
 
     Column(modifier.fillMaxSize()) {
-        val tabIndex = when (vm.type) { "album" -> 0; "artist" -> 1; else -> 2 }
+        val tabIndex = when (vm.type) { "album" -> 0; "artist" -> 1; "track" -> 2; else -> 3 }
         TabRow(selectedTabIndex = tabIndex) {
             Tab(selected = vm.type == "album", onClick = { vm.selectType("album") },
                 text = { Text("Albums") })
@@ -123,6 +123,13 @@ fun SearchScreen(
                 text = { Text("Artists") })
             Tab(selected = vm.type == "track", onClick = { vm.selectType("track") },
                 text = { Text("Songs") })
+            Tab(selected = vm.type == "youtube", onClick = { vm.selectType("youtube") },
+                text = { Text("YouTube") })
+        }
+
+        if (vm.type == "youtube") {
+            YouTubeScreen(Modifier.weight(1f))
+            return@Column
         }
 
         OutlinedTextField(

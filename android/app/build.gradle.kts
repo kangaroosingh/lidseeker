@@ -9,23 +9,30 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.lidseeker.app"
+        applicationId = "com.kangaroosingh.musicrequests"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.4.1-beta"
+        versionCode = 1
+        versionName = "1.0.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        create("personal") {
+            val signingPath = System.getenv("HARSH_MUSIC_KEYSTORE")
+            if (!signingPath.isNullOrBlank()) {
+                storeFile = file(signingPath)
+                storePassword = System.getenv("HARSH_MUSIC_KEY_PASSWORD")
+                keyAlias = "harsh-music"
+                keyPassword = System.getenv("HARSH_MUSIC_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            // Signed with the debug keystore so anyone can build a release APK
-            // from source without a private key. The APK is distributed via
-            // GitHub Releases; sideloaders should verify the artifact against
-            // the published SHA256 checksums.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("personal")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
