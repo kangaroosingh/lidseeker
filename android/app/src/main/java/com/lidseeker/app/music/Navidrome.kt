@@ -41,7 +41,7 @@ class Navidrome(context: Context) {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM)
     }
     private val client = OkHttpClient.Builder().connectTimeout(15,TimeUnit.SECONDS).readTimeout(30,TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).build()
+        .callTimeout(25,TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
     @Volatile var connection: MusicConnection? = null
         private set
     suspend fun load() = withContext(Dispatchers.IO) {
@@ -62,14 +62,14 @@ class Navidrome(context: Context) {
     private suspend fun call(endpoint: String, params: Map<String,String> = emptyMap(), credentials: MusicConnection? = connection): JsonObject = withContext(Dispatchers.IO) {
         val url = SubsonicAuth.url(credentials ?: error("Connect Navidrome first."),endpoint,params)
         val response = try { client.newCall(Request.Builder().url(url).build()).execute() }
-            catch (_: java.io.IOException) { throw IllegalStateException("Cannot reach Navidrome. Check the address, connection and Tailscale.") }
+            catch (error: java.io.IOException) { throw ConnectionProblem(ConnectionDiagnostics.classify(error)) }
         response.use {
-            check(it.isSuccessful) { "Navidrome returned HTTP ${it.code}." }
+            if(!it.isSuccessful) throw ConnectionProblem(if(it.code==401 || it.code==403) ConnectionIssue.AUTH else ConnectionIssue.SERVER)
             val root = try { Json.parseToJsonElement(it.body.string()).jsonObject["subsonic-response"]!!.jsonObject }
-                catch (_: Exception) { throw IllegalStateException("This address did not return a Navidrome response.") }
+                catch (_: Exception) { throw ConnectionProblem(ConnectionIssue.ADDRESS) }
             if (root["status"]?.jsonPrimitive?.content != "ok") {
                 val code = root["error"]?.jsonObject?.get("code")?.jsonPrimitive?.intOrNull
-                error(if (code == 40) "Navidrome sign-in failed. Check your username and password." else "Navidrome could not complete this request (code ${code ?: 0}).")
+                throw ConnectionProblem(if(code==40 || code==50) ConnectionIssue.AUTH else ConnectionIssue.SERVER)
             }
             root
         }
@@ -80,6 +80,7 @@ class Navidrome(context: Context) {
         return LibraryItem(value("id"),value("title").ifEmpty { value("name") },value("artist"),value("coverArt"),kind,value("duration").toIntOrNull() ?: 0)
     }
     suspend fun albums(offset: Int = 0): List<LibraryItem> = items(call("getAlbumList2",mapOf("type" to "newest","size" to "100","offset" to "$offset")),"albumList2","album","album")
+    suspend fun ping() { call("ping") }
     suspend fun artists(): List<LibraryItem> = call("getArtists")["artists"]?.jsonObject?.get("index")?.jsonArray?.flatMap { index -> index.jsonObject["artist"]?.jsonArray?.map { item(it.jsonObject,"artist") }.orEmpty() }.orEmpty()
     suspend fun artistAlbums(id: String): List<LibraryItem> = items(call("getArtist",mapOf("id" to id)),"artist","album","album")
     suspend fun playlists(): List<LibraryItem> = items(call("getPlaylists"),"playlists","playlist","playlist")

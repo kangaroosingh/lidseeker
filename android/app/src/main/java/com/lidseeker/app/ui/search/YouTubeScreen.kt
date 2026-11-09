@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import kotlinx.serialization.json.*
 
-class YouTubeViewModel(private val repo: Repository) : ViewModel() {
+class YouTubeViewModel(private val repo: Repository,private val library: com.lidseeker.app.music.Navidrome? = null) : ViewModel() {
     var query by mutableStateOf("")
     var limit by mutableStateOf(25)
     var enabled by mutableStateOf<Boolean?>(null)
@@ -39,6 +39,8 @@ class YouTubeViewModel(private val repo: Repository) : ViewModel() {
     var selected by mutableStateOf<YouTubeVideo?>(null)
     var title by mutableStateOf("")
     var artist by mutableStateOf("")
+    var requestWarning by mutableStateOf("")
+    private var checkedRequest = ""
     val isPlaylist get() = query.trim().startsWith("https://", true) && Regex("[?&]list=").containsMatchIn(query)
 
     suspend fun refresh() {
@@ -66,6 +68,21 @@ class YouTubeViewModel(private val repo: Repository) : ViewModel() {
         else { results = repo.youtubeSearch(query.trim()); if (results.isEmpty()) message = "No songs found. Try another search or paste a video link." }
     }
     fun request(url: String, name: String, performer: String) = perform {
+        val signature="$url|$name|$performer"
+        if(library!=null && (checkedRequest!=signature || requestWarning.isBlank())) {
+            val matches=mutableListOf<String>()
+            if(library.connection==null) matches.add("Library is not connected; duplicates could not be checked.")
+            else try {
+                library.search(name).filter { it.kind=="song" && com.lidseeker.app.music.MusicMatching.likelySame(name,performer,it.title,it.artist) }
+                    .take(5).forEach { matches.add("Possible library match: ${it.title} · ${it.artist}") }
+            } catch(e: CancellationException) { throw e }
+            catch(_: Exception) { matches.add("Library check failed. A duplicate may already exist.") }
+            jobs.filter { it.status!="failed" && (url.endsWith(it.video_id) || com.lidseeker.app.music.MusicMatching.likelySame(name,performer,it.title,it.artist)) }
+                .take(5).forEach { matches.add("Already requested: ${it.title.ifBlank { it.video_id }} · ${it.status}") }
+            checkedRequest=signature
+            requestWarning=matches.joinToString("\n")
+            if(matches.isNotEmpty()) { message=requestWarning;return@perform }
+        }
         val job = repo.youtubeRequest(YouTubeLink(url, name, performer))
         message = if (job.status == "downloaded") "Already downloaded." else "Song queued. You can close the app."
         selected = null; refresh()
@@ -79,8 +96,8 @@ class YouTubeViewModel(private val repo: Repository) : ViewModel() {
 }
 
 @Composable
-fun YouTubeScreen(modifier: Modifier = Modifier) {
-    val vm: YouTubeViewModel = viewModel(factory = repoFactory { YouTubeViewModel(it) })
+fun YouTubeScreen(modifier: Modifier = Modifier,library: com.lidseeker.app.music.Navidrome? = null) {
+    val vm: YouTubeViewModel = viewModel(factory = repoFactory { YouTubeViewModel(it,library) })
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(vm, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -110,7 +127,7 @@ fun YouTubeScreen(modifier: Modifier = Modifier) {
         if (!vm.searched && vm.enabled == true) item { Text("Find songs by title and artist, or paste a YouTube video or playlist link.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         items(vm.results, key = { it.video_id }) { video ->
             AppCard { MediaRow(imageUrl = null, title = video.title, subtitle = video.channel, trailing = {
-                TextButton(enabled = !vm.busy, onClick = { vm.selected = video; vm.title = video.title; vm.artist = video.artist; vm.message = "" }) { Text("Request") }
+                TextButton(enabled = !vm.busy, onClick = { vm.selected = video; vm.title = video.title; vm.artist = video.artist; vm.message = "";vm.requestWarning="" }) { Text("Request") }
             }) }
         }
         vm.playlist?.let { playlist ->
@@ -135,12 +152,13 @@ fun YouTubeScreen(modifier: Modifier = Modifier) {
     vm.selected?.let { video ->
         AlertDialog(onDismissRequest = { if (!vm.busy) vm.selected = null }, title = { Text("Request this song?") }, text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = vm.title, onValueChange = { if (it.length <= 200) vm.title = it }, label = { Text("Song title") })
-                OutlinedTextField(value = vm.artist, onValueChange = { if (it.length <= 200) vm.artist = it }, label = { Text("Artist (optional)") })
+                OutlinedTextField(value = vm.title, onValueChange = { if (it.length <= 200) {vm.title = it;vm.requestWarning=""} }, label = { Text("Song title") },enabled=!vm.busy)
+                OutlinedTextField(value = vm.artist, onValueChange = { if (it.length <= 200) {vm.artist = it;vm.requestWarning=""} }, label = { Text("Artist (optional)") },enabled=!vm.busy)
                 Text("Check the artist: the channel may be a record label. Singles are grouped by artist.")
                 if (vm.message.isNotBlank()) Text(vm.message, color = MaterialTheme.colorScheme.error)
+                if(vm.requestWarning.isNotBlank()) Text(vm.requestWarning+"\nRequest again only if you want another copy.",color=MaterialTheme.colorScheme.error)
             }
-        }, confirmButton = { TextButton(enabled = !vm.busy, onClick = { vm.request("https://youtu.be/${video.video_id}", vm.title, vm.artist) }) { Text(if (vm.busy) "Requesting…" else "Request song") } },
+        }, confirmButton = { TextButton(enabled = !vm.busy, onClick = { vm.request("https://youtu.be/${video.video_id}", vm.title, vm.artist) }) { Text(if (vm.busy) "Checking / requesting…" else if(vm.requestWarning.isNotBlank()) "Request anyway" else "Request song") } },
             dismissButton = { TextButton(enabled = !vm.busy, onClick = { vm.selected = null }) { Text("Cancel") } })
     }
 }

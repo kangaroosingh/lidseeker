@@ -111,6 +111,7 @@ private fun typeNoun(type: String): String = when (type) {
 fun SearchScreen(
     modifier: Modifier = Modifier,
     onArtistClick: (SearchResult) -> Unit,
+    library: com.lidseeker.app.music.Navidrome? = null,
 ) {
     val vm: SearchViewModel = viewModel(factory = repoFactory { SearchViewModel(it) })
 
@@ -128,7 +129,7 @@ fun SearchScreen(
         }
 
         if (vm.type == "youtube") {
-            YouTubeScreen(Modifier.weight(1f))
+            YouTubeScreen(Modifier.weight(1f),library)
             return@Column
         }
 

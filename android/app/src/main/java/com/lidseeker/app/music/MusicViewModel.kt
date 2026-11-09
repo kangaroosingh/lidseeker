@@ -38,6 +38,7 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
     var showPlayer by mutableStateOf(false)
     var showQueue by mutableStateOf(false)
     var showSettings by mutableStateOf(false)
+    var showDiagnostics by mutableStateOf(false)
     var requestSettings by mutableStateOf(false)
     private val controllerFuture = MediaController.Builder(app,SessionToken(app,ComponentName(app,PlaybackService::class.java))).buildAsync()
     private var generation = 0
@@ -113,6 +114,7 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
     fun moreAlbums() = action { items=items+navidrome.albums(items.size) }
     fun play(songs: List<LibraryItem>, index: Int=0) {
         if(songs.isEmpty()) return
+        if(navidrome.connection==null) { message="Connect Navidrome before playing library results.";showSettings=true;return }
         val player=controller ?: run { message="Audio service is still connecting. Try again in a moment.";return }
         val media=songs.map { song -> MediaItem.Builder().setMediaId(song.id)
             .setUri(navidrome.url("stream",mapOf("id" to song.id)))

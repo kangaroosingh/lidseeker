@@ -69,12 +69,12 @@ fun MusicRoot() {
         }
         NavigationBar(containerColor=Color(0xFF121212)) {
             listOf("Home" to Icons.Default.Home,"Search" to Icons.Default.Search,"Library" to Icons.Default.LibraryMusic,"Requests" to Icons.Default.AddCircleOutline).forEach { (name,icon) ->
-                NavigationBarItem(selected=vm.tab==name,onClick={vm.tab=name;vm.items=emptyList();vm.detail=null;if(vm.connected && name!="Requests") vm.browse()},icon={Icon(icon,null)},label={Text(name)},colors=NavigationBarItemDefaults.colors(indicatorColor=Color(0xFF263E34),selectedIconColor=MaterialTheme.colorScheme.primary,selectedTextColor=Color.White))
+                NavigationBarItem(selected=vm.tab==name,onClick={vm.tab=name;vm.items=emptyList();vm.detail=null;if(vm.connected && name!="Requests" && name!="Search") vm.browse()},icon={Icon(icon,null)},label={Text(name)},colors=NavigationBarItemDefaults.colors(indicatorColor=Color(0xFF263E34),selectedIconColor=MaterialTheme.colorScheme.primary,selectedTextColor=Color.White))
             }
         }
     }}) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if(vm.message.isNotBlank()) Surface(color=Color(0xFF2B2925),modifier=Modifier.fillMaxWidth()) { Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) { Text(vm.message,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodySmall);TextButton(onClick={vm.message=""}) { Text("Dismiss") } } }
+            if(vm.message.isNotBlank()) Surface(color=Color(0xFF2B2925),modifier=Modifier.fillMaxWidth()) { Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically) { Text(vm.message,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodySmall);TextButton(onClick={vm.showDiagnostics=true}) { Text("Diagnose") };TextButton(onClick={vm.message=""}) { Text("Dismiss") } } }
             if(vm.tab=="Requests") {
                 if(!vm.requestsConnected) Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
                     Text("One sign-in. More music.",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
@@ -90,9 +90,11 @@ fun MusicRoot() {
                     else when(requestTab) {
                         "Discover" -> DiscoverScreen(Modifier.weight(1f))
                         "History" -> RequestsScreen(Modifier.weight(1f))
-                        else -> SearchScreen(Modifier.weight(1f),onArtistClick={requestArtist=it})
+                        else -> SearchScreen(Modifier.weight(1f),onArtistClick={requestArtist=it},library=vm.navidrome)
                     }
                 }
+            } else if(vm.tab=="Search" && vm.detail==null) {
+                SmartSearchScreen(vm,Modifier.weight(1f))
             } else if(!vm.connected) {
                 Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF183A29),Color(0xFF121212)))).padding(28.dp),verticalArrangement=Arrangement.Center) {
                     Icon(Icons.Default.Headphones,null,tint=MaterialTheme.colorScheme.primary,modifier=Modifier.size(64.dp))
@@ -131,6 +133,7 @@ fun MusicRoot() {
         }
     }
     if(vm.showSettings) Connections(vm)
+    if(vm.showDiagnostics) DiagnosticsSheet(vm)
     if(vm.showPlayer) NowPlaying(vm)
     if(vm.showQueue) QueueSheet(vm)
 }
@@ -161,11 +164,12 @@ fun MusicRoot() {
             HorizontalDivider();Text("Lidseeker · requests",color=MaterialTheme.colorScheme.primary)
             Text(if(vm.requestsConnected) "Connected to your request server" else "Sign in from the Requests tab",style=MaterialTheme.typography.bodyMedium)
             TextButton(onClick={vm.showSettings=false;vm.tab="Requests"}) { Text("Open requests") }
+            TextButton(onClick={vm.showSettings=false;vm.showDiagnostics=true}) { Text("Test connections / diagnose") }
             if(vm.requestsConnected) {
                 TextButton(onClick={vm.showSettings=false;vm.requestSettings=true}) { Text("Request server settings") }
                 TextButton(onClick={vm.action { vm.requests.logout();vm.requestsConnected=false }}) { Text("Disconnect requests") }
             }
-            Text("Music 2.0 · Based on the open-source Lidseeker app",style=MaterialTheme.typography.bodySmall,color=Color.Gray)
+            Text("Music 2.1 · Based on the open-source Lidseeker app",style=MaterialTheme.typography.bodySmall,color=Color.Gray)
             Spacer(Modifier.height(16.dp))
         }
     }
