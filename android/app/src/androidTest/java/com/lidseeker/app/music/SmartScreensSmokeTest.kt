@@ -21,13 +21,23 @@ class SmartScreensSmokeTest {
         instrumentation.runOnMainSync { vm=ViewModelProvider(activity)[MusicViewModel::class.java] }
         repeat(30) { if(!vm.ready) Thread.sleep(100) }
         assertTrue(vm.ready)
+        fun awaitVisible(text: String) {
+            repeat(50) {
+                val root=instrumentation.uiAutomation.rootInActiveWindow
+                if(root?.packageName?.toString()==context.packageName && root.findAccessibilityNodeInfosByText(text).isNotEmpty()) return
+                Thread.sleep(200)
+            }
+            fail("Expected app screen was not visible: $text")
+        }
         fun screenshot(name: String) { instrumentation.uiAutomation.takeScreenshot()?.let { bitmap -> File(context.filesDir,name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG,100,it) } } }
         try {
             instrumentation.runOnMainSync { vm.tab="Search";vm.detail=null }
             Thread.sleep(1000)
+            awaitVisible("Find it. Play it. Request it.")
             screenshot("music-smart-search.png")
             instrumentation.runOnMainSync { vm.showDiagnostics=true }
             Thread.sleep(1500)
+            awaitVisible("Connection diagnostics")
             screenshot("music-diagnostics.png")
             val results=kotlinx.coroutines.runBlocking { ConnectionDiagnostics.check(context,vm.navidrome,vm.requests,false) }
             assertEquals(listOf("Phone connection","Navidrome","Requests"),results.map { it.name })
