@@ -38,6 +38,9 @@ class Repository(private val settings: Settings) {
     fun currentServerUrl(): String = baseUrl
 
     suspend fun saveServerUrl(url: String) {
+        if (baseUrl.isNotBlank() && baseUrl != url.trim().trimEnd('/')) {
+            logout() // Never forward the previous server's bearer token to a new host.
+        }
         settings.setServerUrl(url)
         baseUrl = url.trim().trimEnd('/')
     }

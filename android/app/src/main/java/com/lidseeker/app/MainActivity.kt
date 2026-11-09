@@ -6,7 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.lidseeker.app.ui.AppRoot
+import com.lidseeker.app.music.MusicRoot
 import com.lidseeker.app.ui.theme.LidseekerTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,7 +19,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             LidseekerTheme {
-                AppRoot()
+                MusicRoot()
             }
         }
     }

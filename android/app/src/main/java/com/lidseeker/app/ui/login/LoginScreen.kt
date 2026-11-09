@@ -107,7 +107,7 @@ fun LoginScreen(onLoggedIn: () -> Unit) {
         }
         Spacer(Modifier.size(16.dp))
         Text(
-            "Harsh Music",
+            "Music requests",
             style = MaterialTheme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )

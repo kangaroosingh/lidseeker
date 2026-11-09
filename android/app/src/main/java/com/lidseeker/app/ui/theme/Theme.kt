@@ -6,17 +6,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 // --- Brand greens (tasteful accent, the "seerr indigo" equivalent) ---
-val Green = Color(0xFF22C55E)       // primary accent
+val Green = Color(0xFF1DB954)       // primary accent
 val GreenBright = Color(0xFF4ADE80) // highlights / secondary
 val GreenDeep = Color(0xFF15803D)   // pressed / secondary container
 val GreenContainer = Color(0xFF14532D)
 val GreenSoft = Color(0xFF86EFAC)   // text on green container
 
 // --- Seerr-style slate surfaces ---
-val Slate900 = Color(0xFF111827)    // app background
-val Slate850 = Color(0xFF161F2E)
-val Slate800 = Color(0xFF1F2937)    // cards, bars
-val Slate700 = Color(0xFF374151)    // dividers, placeholders, chips
+val Slate900 = Color(0xFF121212)    // app background
+val Slate850 = Color(0xFF181818)
+val Slate800 = Color(0xFF222222)    // cards, bars
+val Slate700 = Color(0xFF333333)    // dividers, placeholders, chips
 val TextHigh = Color(0xFFF9FAFB)
 val TextMuted = Color(0xFF9CA3AF)
 val Danger = Color(0xFFEF4444)
