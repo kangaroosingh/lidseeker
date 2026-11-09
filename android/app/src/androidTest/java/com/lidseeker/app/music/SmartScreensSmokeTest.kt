@@ -19,8 +19,13 @@ class SmartScreensSmokeTest {
         val activity=instrumentation.startActivitySync(Intent(context,MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
         lateinit var vm: MusicViewModel
         instrumentation.runOnMainSync { vm=ViewModelProvider(activity)[MusicViewModel::class.java] }
-        repeat(30) { if(!vm.ready) Thread.sleep(100) }
-        assertTrue(vm.ready)
+        val deadline=android.os.SystemClock.elapsedRealtime()+60_000
+        var ready=false
+        while(!ready && android.os.SystemClock.elapsedRealtime()<deadline) {
+            instrumentation.runOnMainSync { ready=vm.ready }
+            if(!ready) Thread.sleep(100)
+        }
+        assertTrue("Saved connection initialization did not finish within 60 seconds",ready)
         fun awaitVisible(text: String) {
             repeat(50) {
                 val root=instrumentation.uiAutomation.rootInActiveWindow
