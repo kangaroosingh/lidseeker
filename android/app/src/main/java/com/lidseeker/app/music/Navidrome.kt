@@ -14,7 +14,7 @@ import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 
 data class MusicConnection(val server: String, val username: String, val token: String, val salt: String)
-data class LibraryItem(val id: String, val title: String, val artist: String = "", val cover: String = "", val kind: String = "song", val duration: Int = 0)
+data class LibraryItem(val id: String, val title: String, val artist: String = "", val cover: String = "", val kind: String = "song", val duration: Int = 0, val owner: String = "")
 
 object SubsonicAuth {
     fun token(password: String, salt: String): String = MessageDigest.getInstance("MD5")
@@ -46,7 +46,7 @@ class Navidrome(context: Context) {
         private set
     suspend fun load() = withContext(Dispatchers.IO) {
         val server = prefs.getString("server",null)
-        if (server != null) connection = MusicConnection(server,prefs.getString("username","").orEmpty(),prefs.getString("token","").orEmpty(),prefs.getString("salt","").orEmpty())
+        connection = if (server != null) MusicConnection(server,prefs.getString("username","").orEmpty(),prefs.getString("token","").orEmpty(),prefs.getString("salt","").orEmpty()) else null
     }
     suspend fun login(server: String, username: String, password: String) = withContext(Dispatchers.IO) {
         require(username.isNotBlank() && password.isNotBlank()) { "Enter your Navidrome username and password." }
@@ -77,10 +77,14 @@ class Navidrome(context: Context) {
     private fun items(root: JsonObject, group: String, key: String, kind: String): List<LibraryItem> = root[group]?.jsonObject?.get(key)?.jsonArray?.map { item(it.jsonObject,kind) }.orEmpty()
     private fun item(row: JsonObject, kind: String): LibraryItem {
         fun value(key: String) = row[key]?.jsonPrimitive?.contentOrNull.orEmpty()
-        return LibraryItem(value("id"),value("title").ifEmpty { value("name") },value("artist"),value("coverArt"),kind,value("duration").toIntOrNull() ?: 0)
+        return LibraryItem(value("id"),value("title").ifEmpty { value("name") },value("artist"),value("coverArt"),kind,value("duration").toIntOrNull() ?: 0,value("owner"))
     }
     suspend fun albums(offset: Int = 0): List<LibraryItem> = items(call("getAlbumList2",mapOf("type" to "newest","size" to "100","offset" to "$offset")),"albumList2","album","album")
     suspend fun ping() { call("ping") }
+    suspend fun song(id: String): LibraryItem = item(call("getSong",mapOf("id" to id))["song"]!!.jsonObject,"song")
+    suspend fun createFeedbackPlaylist(name: String): LibraryItem = item(call("createPlaylist",mapOf("name" to name))["playlist"]!!.jsonObject,"playlist")
+    suspend fun addToPlaylist(playlist: String, song: String) { call("updatePlaylist",mapOf("playlistId" to playlist,"songIdToAdd" to song)) }
+    suspend fun removeFromPlaylist(playlist: String, index: Int) { call("updatePlaylist",mapOf("playlistId" to playlist,"songIndexToRemove" to index.toString())) }
     suspend fun artists(): List<LibraryItem> = call("getArtists")["artists"]?.jsonObject?.get("index")?.jsonArray?.flatMap { index -> index.jsonObject["artist"]?.jsonArray?.map { item(it.jsonObject,"artist") }.orEmpty() }.orEmpty()
     suspend fun artistAlbums(id: String): List<LibraryItem> = items(call("getArtist",mapOf("id" to id)),"artist","album","album")
     suspend fun playlists(): List<LibraryItem> = items(call("getPlaylists"),"playlists","playlist","playlist")

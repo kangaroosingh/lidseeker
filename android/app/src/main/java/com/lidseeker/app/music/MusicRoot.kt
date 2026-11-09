@@ -1,5 +1,6 @@
 package com.lidseeker.app.music
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -105,7 +106,7 @@ fun MusicRoot() {
                 }
             } else {
                 if(vm.tab=="Search") OutlinedTextField(value=vm.query,onValueChange={vm.query=it},placeholder={Text("What do you want to listen to?")},singleLine=true,modifier=Modifier.fillMaxWidth().padding(16.dp),leadingIcon={Icon(Icons.Default.Search,null)},trailingIcon={IconButton(onClick={vm.browse()}) { Icon(Icons.Default.ArrowForward,"Search library") }},keyboardOptions=KeyboardOptions(imeAction=ImeAction.Search),keyboardActions=KeyboardActions(onSearch={vm.browse()}))
-                if(vm.tab=="Library" && vm.detail==null) Row(Modifier.padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("Albums","Artists","Playlists").forEach { kind -> FilterChip(selected=vm.libraryType==kind,onClick={vm.libraryType=kind;vm.items=emptyList();vm.browse()},label={Text(kind)}) } }
+                if(vm.tab=="Library" && vm.detail==null) Row(Modifier.padding(horizontal=16.dp).horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) { listOf("Albums","Artists","Playlists","Liked","Disliked").forEach { kind -> FilterChip(selected=vm.libraryType==kind,onClick={vm.libraryType=kind;vm.items=emptyList();vm.browse()},label={Text(kind)}) } }
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
                     if(vm.detail!=null) IconButton(onClick={vm.browse()}) { Icon(Icons.Default.ArrowBack,"Back to library") }
                     Text(vm.heading,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f))
@@ -126,7 +127,7 @@ fun MusicRoot() {
                     items(vm.items,key={it.kind+it.id}) { item -> Row(Modifier.fillMaxWidth().clickable { vm.open(item) }.padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
                         Cover(item,vm,Modifier.size(56.dp).clip(RoundedCornerShape(if(item.kind=="artist") 28.dp else 6.dp)))
                         Column(Modifier.weight(1f).padding(horizontal=12.dp)) { Text(item.title,maxLines=1,overflow=TextOverflow.Ellipsis,fontWeight=FontWeight.SemiBold);Text(listOf(item.kind.replaceFirstChar { it.uppercase() },item.artist).filter { it.isNotBlank() }.joinToString(" · "),style=MaterialTheme.typography.bodySmall,color=Color.LightGray,maxLines=1,overflow=TextOverflow.Ellipsis) }
-                        Icon(if(item.kind=="song") Icons.Default.PlayArrow else Icons.Default.ChevronRight,null,tint=Color.LightGray)
+                        if(item.kind=="song") FeedbackButtons(vm,item.id) else Icon(Icons.Default.ChevronRight,null,tint=Color.LightGray)
                     } }
                 }
             }
@@ -189,6 +190,7 @@ fun MusicRoot() {
             Spacer(Modifier.height(24.dp));CoverArt(item.mediaMetadata.artworkUri?.toString(),Modifier.fillMaxWidth().aspectRatio(1f))
             Spacer(Modifier.height(24.dp));Text(item.mediaMetadata.title?.toString().orEmpty(),style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
             Text(item.mediaMetadata.artist?.toString().orEmpty(),color=Color.LightGray)
+            vm.currentSongId?.let { FeedbackButtons(vm,it) }
             Spacer(Modifier.height(16.dp));Slider(value=position.toFloat().coerceIn(0f,duration.coerceAtLeast(1).toFloat()),onValueChange={dragging=true;position=it.toLong()},onValueChangeFinished={player.seekTo(position);dragging=false},valueRange=0f..duration.coerceAtLeast(1).toFloat(),enabled=duration>0)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) { Text(clock(position),style=MaterialTheme.typography.bodySmall);Text(clock(duration),style=MaterialTheme.typography.bodySmall) }
             Row(Modifier.fillMaxWidth().padding(vertical=16.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
@@ -215,5 +217,20 @@ private fun clock(ms: Long): String { val seconds=ms.coerceAtLeast(0)/1000;retur
                 IconButton(onClick={vm.controller?.removeMediaItem(index)}) { Icon(Icons.Default.Close,"Remove from queue") }
             }
         } }
+    }
+}
+
+@Composable internal fun FeedbackButtons(vm: MusicViewModel,id: String) {
+    val state=vm.feedback[id] ?: Feedback.NONE
+    Row(verticalAlignment=Alignment.CenterVertically) {
+        IconButton(enabled=vm.connected && !vm.feedbackBusy,onClick={vm.setFeedback(id,if(state==Feedback.LIKED) Feedback.NONE else Feedback.LIKED)}) {
+            Icon(if(state==Feedback.LIKED) Icons.Default.ThumbUp else Icons.Default.ThumbUpOffAlt,
+                if(state==Feedback.LIKED) "Remove like" else "Like",tint=if(state==Feedback.LIKED) MaterialTheme.colorScheme.primary else Color.LightGray)
+        }
+        IconButton(enabled=vm.connected && !vm.feedbackBusy,onClick={vm.setFeedback(id,if(state==Feedback.DISLIKED) Feedback.NONE else Feedback.DISLIKED)}) {
+            Icon(if(state==Feedback.DISLIKED) Icons.Default.ThumbDown else Icons.Default.ThumbDownOffAlt,
+                if(state==Feedback.DISLIKED) "Cancel deletion / remove dislike" else "Dislike and delete after 30 days",tint=if(state==Feedback.DISLIKED) MaterialTheme.colorScheme.error else Color.LightGray)
+        }
+        if(!vm.feedbackKnown) Text("Status unchecked",style=MaterialTheme.typography.labelSmall)
     }
 }

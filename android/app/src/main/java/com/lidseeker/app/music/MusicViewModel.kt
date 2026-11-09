@@ -40,6 +40,10 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
     var showSettings by mutableStateOf(false)
     var showDiagnostics by mutableStateOf(false)
     var requestSettings by mutableStateOf(false)
+    var feedback by mutableStateOf<Map<String,Feedback>>(emptyMap())
+    var feedbackBusy by mutableStateOf(false)
+    var feedbackKnown by mutableStateOf(false)
+    val currentSongId: String? get() = now?.mediaId?.removePrefix("song:")
     private val controllerFuture = MediaController.Builder(app,SessionToken(app,ComponentName(app,PlaybackService::class.java))).buildAsync()
     private var generation = 0
     init {
@@ -58,8 +62,30 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
             catch (_: Exception) { message="Could not load saved connections. Sign in again." }
             ready=true
             if (connected) browse()
+            refreshFeedback()
         }
         viewModelScope.launch { requests.authExpired.collect { requests.logout(); requestsConnected=false } }
+        viewModelScope.launch { LikedSongs.revision.collect { refreshFeedback() } }
+    }
+    private suspend fun refreshFeedback() {
+        if(!connected) { feedback=emptyMap();feedbackKnown=false;return }
+        val account=navidrome.connection
+        try { val result=SongFeedback.forServer(navidrome).states();if(account==navidrome.connection) {feedback=result;feedbackKnown=true} }
+        catch(e: CancellationException) { throw e }
+        catch(_: Exception) { feedbackKnown=false }
+    }
+    fun setFeedback(id: String, state: Feedback) {
+        if(feedbackBusy || !connected) return
+        feedbackBusy=true
+        viewModelScope.launch {
+            try {
+                SongFeedback.forServer(navidrome).set(id,state)
+                refreshFeedback()
+                message=when(state) { Feedback.LIKED -> "Added to Liked Songs. Pending deletion cancelled.";Feedback.DISLIKED -> "Disliked. Server deletion is scheduled after 30 days. Like or clear feedback to keep this song.";else -> "Feedback cleared. Pending deletion cancelled." }
+            } catch(e: CancellationException) { throw e }
+            catch(_: Exception) { message="Could not confirm feedback. Check the connection and refresh before trying again.";refreshFeedback() }
+            finally { feedbackBusy=false }
+        }
     }
     private fun syncPlayer() {
         controller?.let { p -> now=p.currentMediaItem; playing=p.isPlaying; queue=(0 until p.mediaItemCount).map { p.getMediaItemAt(it) } }
@@ -76,6 +102,7 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
     fun login(server: String, requestServer: String, user: String, password: String) = action {
         navidrome.login(server,user,password)
         connected=true
+        refreshFeedback()
         try {
             require(requestServer.startsWith("https://")) { "Enter your Lidseeker HTTPS address." }
             requests.saveServerUrl(requestServer)
@@ -89,7 +116,7 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun disconnect() = action {
-        controller?.stop();controller?.clearMediaItems();navidrome.logout();connected=false;items=emptyList();detail=null
+        controller?.stop();controller?.clearMediaItems();navidrome.logout();connected=false;items=emptyList();detail=null;feedback=emptyMap();feedbackKnown=false
     }
     fun browse() = action { loadBrowse() }
     private suspend fun loadBrowse() {
@@ -97,6 +124,8 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
         detail=null
         val result=when {
             tab=="Search" && query.isNotBlank() -> { heading="In your library"; navidrome.search(query.trim()) }
+            tab=="Library" && libraryType=="Liked" -> { heading="Liked Songs";LikedSongs.forServer(navidrome).songs() }
+            tab=="Library" && libraryType=="Disliked" -> { heading="Disliked · pending deletion after 30 days";LikedSongs.forServer(navidrome,SongFeedback.DISLIKED_NAME).songs() }
             tab=="Library" && libraryType=="Artists" -> { heading="Artists";navidrome.artists() }
             tab=="Library" && libraryType=="Playlists" -> { heading="Your playlists";navidrome.playlists() }
             else -> { heading=if(tab=="Home") "Recently added" else "Albums";navidrome.albums() }
@@ -116,10 +145,7 @@ class MusicViewModel(app: Application) : AndroidViewModel(app) {
         if(songs.isEmpty()) return
         if(navidrome.connection==null) { message="Connect Navidrome before playing library results.";showSettings=true;return }
         val player=controller ?: run { message="Audio service is still connecting. Try again in a moment.";return }
-        val media=songs.map { song -> MediaItem.Builder().setMediaId(song.id)
-            .setUri(navidrome.url("stream",mapOf("id" to song.id)))
-            .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
-                .setArtworkUri(if(song.cover.isNotBlank()) Uri.parse(navidrome.url("getCoverArt",mapOf("id" to song.cover,"size" to "600"))) else null).build()).build() }
+        val media=songs.map { CarLibrary.media(it,navidrome,true) }
         player.setMediaItems(media,index.coerceIn(media.indices),0);player.prepare();player.play();syncPlayer()
     }
     fun toggle() { controller?.let { if(it.isPlaying) it.pause() else { if(it.playbackState==Player.STATE_IDLE) it.prepare();it.play() } } }
